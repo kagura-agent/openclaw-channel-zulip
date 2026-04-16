@@ -1,11 +1,11 @@
 /**
- * Zulip ChannelPlugin definition — skeleton.
- *
- * This will be the full ChannelPlugin<ZulipAccount> once gateway/outbound
- * adapters are implemented.
+ * Zulip ChannelPlugin — full assembly.
  */
 
-import type { ZulipAccount } from "./types.js";
+import type { ZulipAccount, ZulipChannelConfig } from "./types.js";
+import { createGatewayAdapter } from "./gateway.js";
+import { createOutboundAdapter } from "./outbound.js";
+import { zulipConfigAdapter } from "./config.js";
 
 export const ZULIP_META = {
   id: "zulip" as const,
@@ -26,7 +26,43 @@ export const ZULIP_CAPABILITIES = {
   blockStreaming: false,
 };
 
-// Full ChannelPlugin<ZulipAccount> will be assembled here once
-// gateway.ts and outbound.ts are implemented.
-// For now, export the building blocks.
+/**
+ * Build the full Zulip channel plugin.
+ */
+export function createZulipPlugin() {
+  const gateway = createGatewayAdapter();
+
+  // Outbound needs account resolution — we create a factory that gets
+  // cfg at call time. For now, store a resolver reference.
+  let currentCfg: unknown = null;
+
+  const resolveAccount = (accountId?: string | null): ZulipAccount => {
+    if (!currentCfg) throw new Error("Zulip plugin: config not initialized");
+    const cfg = currentCfg as { channels?: { zulip?: ZulipChannelConfig } };
+    const zulip = cfg.channels?.zulip;
+    if (!zulip?.accounts) throw new Error("No Zulip accounts configured");
+    const id = accountId ?? Object.keys(zulip.accounts)[0];
+    const raw = zulip.accounts[id];
+    if (!raw) throw new Error(`Zulip account not found: ${id}`);
+    return { accountId: id, url: raw.url, botEmail: raw.botEmail, apiKey: raw.apiKey };
+  };
+
+  const outbound = createOutboundAdapter(resolveAccount);
+
+  return {
+    id: "zulip" as const,
+    meta: ZULIP_META,
+    capabilities: ZULIP_CAPABILITIES,
+    config: zulipConfigAdapter,
+    gateway: {
+      startAccount: async (ctx: Parameters<typeof gateway.startAccount>[0]) => {
+        currentCfg = ctx.cfg;
+        return gateway.startAccount(ctx);
+      },
+      stopAccount: gateway.stopAccount,
+    },
+    outbound,
+  };
+}
+
 export type { ZulipAccount };
