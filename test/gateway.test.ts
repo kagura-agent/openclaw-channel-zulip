@@ -91,6 +91,7 @@ describe("GatewayAdapter", () => {
               id: 0,
               message: {
                 id: 100,
+                sender_id: 1,
                 sender_email: "bot@test.com", // self
                 sender_full_name: "Bot",
                 type: "stream",
@@ -138,6 +139,7 @@ describe("GatewayAdapter", () => {
               id: 0,
               message: {
                 id: 200,
+                sender_id: 10,
                 sender_email: "user@test.com",
                 sender_full_name: "User",
                 type: "stream",
@@ -189,6 +191,7 @@ describe("GatewayAdapter", () => {
               id: 0,
               message: {
                 id: 300,
+                sender_id: 20,
                 sender_email: "luna@test.com",
                 sender_full_name: "Luna",
                 type: "private",
@@ -219,6 +222,59 @@ describe("GatewayAdapter", () => {
     const dispatchArg = dispatchMock.mock.calls[0][0];
     expect(dispatchArg.ctx.to).toBe("user:luna@test.com");
     expect(dispatchArg.ctx.threadId).toBeUndefined();
+
+    ctx.abortController.abort();
+  });
+
+  it("DM deliver callback uses sender_id (not email) in to array", async () => {
+    mockRegisterQueue.mockResolvedValueOnce({ queue_id: "q1", last_event_id: -1 });
+
+    let callCount = 0;
+    mockGetEvents.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        return Promise.resolve({
+          events: [
+            {
+              type: "message",
+              id: 0,
+              message: {
+                id: 400,
+                sender_id: 42,
+                sender_email: "luna@test.com",
+                sender_full_name: "Luna",
+                type: "private",
+                display_recipient: [{ email: "luna@test.com", id: 42 }, { email: "bot@test.com", id: 1 }],
+                subject: "",
+                content: "test dm",
+                timestamp: 4000,
+              },
+            },
+          ],
+        });
+      }
+      return new Promise(() => {});
+    });
+
+    const dispatchMock = vi.fn().mockImplementation(async (params: any) => {
+      // Simulate the AI reply by calling deliver
+      await params.dispatcherOptions.deliver({ text: "reply" });
+    });
+    const ctx = makeCtx({
+      channelRuntime: {
+        reply: { dispatchReplyWithBufferedBlockDispatcher: dispatchMock },
+      },
+    });
+
+    const adapter = createGatewayAdapter();
+    await adapter.startAccount(ctx as any);
+    await new Promise((r) => setTimeout(r, 100));
+
+    expect(mockSendMessage).toHaveBeenCalledWith({
+      type: "direct",
+      to: [42],  // user ID, not email string
+      content: "reply",
+    });
 
     ctx.abortController.abort();
   });
