@@ -29,10 +29,11 @@ interface ZulipEvent {
   id: number;
   message?: {
     id: number;
+    sender_id: number;
     sender_email: string;
     sender_full_name: string;
     type: "stream" | "private";
-    display_recipient: string | Array<{ email: string }>;
+    display_recipient: string | Array<{ email: string; id: number }>;
     subject: string;
     content: string;
     timestamp: number;
@@ -123,7 +124,7 @@ export function createGatewayAdapter(): ZulipGatewayAdapter {
                         if (msg.type === "private") {
                           await client.sendMessage({
                             type: "direct",
-                            to: [msg.sender_email],
+                            to: [msg.sender_id],
                             content: payload.text,
                           });
                         } else {
