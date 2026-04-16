@@ -1,22 +1,20 @@
 /**
- * OpenClaw Channel Plugin entry point for Zulip.
+ * Plugin entry point for OpenClaw channel plugin system.
  *
- * This is the file OpenClaw's module-loader will import.
- * Uses defineChannelPluginEntry() from the Plugin SDK.
+ * When OpenClaw's plugin-sdk is available, this would use:
+ *   import { defineChannelPluginEntry } from "openclaw/plugin-sdk/core";
  *
- * TODO: Uncomment and implement once gateway/outbound adapters are ready.
- * For now this is a skeleton that shows the intended structure.
+ * For now, export the plugin factory directly.
  */
 
-// import { defineChannelPluginEntry } from "openclaw/plugin-sdk/core";
-// import { zulipPlugin } from "./plugin.js";
+import { createZulipPlugin } from "./plugin.js";
 
-// export default defineChannelPluginEntry({
-//   id: "zulip",
-//   name: "Zulip",
-//   description: "Zulip chat platform integration for OpenClaw",
-//   plugin: zulipPlugin,
-// });
+const zulipPlugin = createZulipPlugin();
 
-// Skeleton export so TypeScript doesn't complain about empty module
-export const PLUGIN_ID = "zulip" as const;
+export default zulipPlugin;
+
+// Also export for programmatic use
+export { createZulipPlugin } from "./plugin.js";
+export { ZulipClient } from "./zulip-api.js";
+export type { ZulipAccount, ZulipChannelConfig } from "./types.js";
+export { parseTarget, buildTarget, parseTopicStatus, setTopicStatus } from "./threading.js";
