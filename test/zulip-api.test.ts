@@ -86,6 +86,52 @@ describe("ZulipClient", () => {
     await expect(client.sendMessage({ type: "stream", to: "x", content: "y" })).rejects.toThrow("404");
   });
 
+  it("removeReaction deletes emoji", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ result: "success" }));
+    await client.removeReaction(42, "thumbs_up");
+
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).toContain("/api/v1/messages/42/reactions");
+    expect(init.method).toBe("DELETE");
+  });
+
+  it("getStreamTopics fetches topics", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ topics: [{ max_id: 10, name: "hello" }] }));
+    const result = await client.getStreamTopics(5);
+
+    expect(result.topics).toHaveLength(1);
+    const [url] = mockFetch.mock.calls[0];
+    expect(url).toContain("/api/v1/users/me/5/topics");
+  });
+
+  it("renameTopic patches message with topic", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ result: "success" }));
+    await client.renameTopic(42, "new topic name");
+
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).toContain("/api/v1/messages/42");
+    expect(init.method).toBe("PATCH");
+    expect(init.body).toContain("propagate_mode");
+  });
+
+  it("getStreams fetches stream list", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ streams: [{ stream_id: 1, name: "general", description: "" }] }));
+    const result = await client.getStreams();
+
+    expect(result.streams).toHaveLength(1);
+    const [url] = mockFetch.mock.calls[0];
+    expect(url).toContain("/api/v1/streams");
+  });
+
+  it("getOwnUser fetches /users/me", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ user_id: 1, email: "bot@test.com", full_name: "Bot" }));
+    const result = await client.getOwnUser();
+
+    expect(result.user_id).toBe(1);
+    const [url] = mockFetch.mock.calls[0];
+    expect(url).toContain("/api/v1/users/me");
+  });
+
   it("getMessages fetches with narrow params", async () => {
     mockFetch.mockResolvedValueOnce(jsonResponse({ messages: [] }));
     await client.getMessages({ anchor: "newest", numBefore: 10, numAfter: 0 });
