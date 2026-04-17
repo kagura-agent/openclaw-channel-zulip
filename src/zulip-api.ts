@@ -71,6 +71,10 @@ export class ZulipClient {
     await this.request("POST", `/messages/${messageId}/reactions`, { emoji_name: emojiName });
   }
 
+  async removeReaction(messageId: number, emojiName: string): Promise<void> {
+    await this.request("DELETE", `/messages/${messageId}/reactions`, { emoji_name: emojiName });
+  }
+
   async getMessages(params: {
     anchor: string | number;
     numBefore: number;
@@ -83,6 +87,40 @@ export class ZulipClient {
       num_after: params.numAfter,
       narrow: params.narrow,
     }) as Promise<{ messages: unknown[] }>;
+  }
+
+  // --- Topics ---
+
+  async getStreamTopics(streamId: number): Promise<{ topics: Array<{ max_id: number; name: string }> }> {
+    return this.request("GET", `/users/me/${streamId}/topics`) as Promise<{ topics: Array<{ max_id: number; name: string }> }>;
+  }
+
+  /**
+   * Rename a topic by editing the anchor message's subject.
+   * propagateMode: "change_all" renames all messages in the topic.
+   */
+  async renameTopic(messageId: number, newTopic: string, propagateMode: "change_one" | "change_later" | "change_all" = "change_all"): Promise<void> {
+    await this.request("PATCH", `/messages/${messageId}`, {
+      topic: newTopic,
+      propagate_mode: propagateMode,
+    });
+  }
+
+  // --- Streams ---
+
+  async getStreams(): Promise<{ streams: Array<{ stream_id: number; name: string; description: string }> }> {
+    return this.request("GET", "/streams") as Promise<{ streams: Array<{ stream_id: number; name: string; description: string }> }>;
+  }
+
+  async getStreamId(streamName: string): Promise<number> {
+    const result = await this.request("GET", "/get_stream_id", { stream: streamName }) as { stream_id: number };
+    return result.stream_id;
+  }
+
+  // --- Users ---
+
+  async getOwnUser(): Promise<{ user_id: number; email: string; full_name: string }> {
+    return this.request("GET", "/users/me") as Promise<{ user_id: number; email: string; full_name: string }>;
   }
 
   // --- File upload ---
